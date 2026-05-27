@@ -99,7 +99,7 @@ st.set_page_config(
 # Custom CSS — KPI cards, header gradient, tab styling
 st.markdown("""
 <style>
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    .block-container { padding-top: 5rem; padding-bottom: 2rem; }
 
     .metric-card {
         background: linear-gradient(135deg, #1a1f2e 0%, #232838 100%);
