@@ -4,11 +4,15 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Whitelist 4lw commands so ruok/srvr work for ad-hoc debugging
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
+      # cub is Confluent's purpose-built readiness utility, bundled in the image
+      test: ["CMD", "cub", "zk-ready", "localhost:2181", "30"]
       interval: 10s
-      timeout: 5s
+      timeout: 35s
       retries: 10
+      start_period: 15s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -27,10 +31,12 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      # Wait for 1 broker on this listener to be ready
+      test: ["CMD", "cub", "kafka-ready", "-b", "localhost:9092", "1", "30"]
       interval: 15s
-      timeout: 10s
+      timeout: 35s
       retries: 10
+      start_period: 30s
 
   postgres:
     image: postgres:16-alpine
