@@ -68,6 +68,13 @@ def format_price(p) -> str:
     return f"${p:.6f}"
 
 
+def hex_to_rgba(hex_color: str, alpha: float = 1.0) -> str:
+    """Convert '#RRGGBB' to 'rgba(r, g, b, a)' — Plotly rejects 8-digit hex."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 def format_volume(v) -> str:
     v = float(v)
     if v >= 1e9:
@@ -472,7 +479,7 @@ with tab_deep:
                 x=coin_df["ts"], y=coin_df["price"],
                 mode="lines", name="Price",
                 line=dict(color=c, width=2.5),
-                fill="tozeroy", fillcolor=f"{c}22",
+                fill="tozeroy", fillcolor=hex_to_rgba(c, 0.13),
                 hovertemplate="$%{y:,.4f}<extra></extra>",
             ),
             row=1, col=1,
