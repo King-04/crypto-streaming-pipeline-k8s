@@ -10,6 +10,7 @@ Auto-refreshes on a configurable interval.
 """
 
 import os
+import time
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -33,10 +34,14 @@ st.set_page_config(
 
 @st.cache_resource
 def get_connection():
-    return psycopg2.connect(
+    conn = psycopg2.connect(
         host=PG_HOST, port=PG_PORT,
         dbname=PG_DB, user=PG_USER, password=PG_PASSWORD,
     )
+    # Autocommit avoids stuck-transaction issues when an early query fails
+    # (e.g. before the consumer has created the schema).
+    conn.autocommit = True
+    return conn
 
 
 def query(sql: str, params: tuple = ()) -> pd.DataFrame:
@@ -45,8 +50,21 @@ def query(sql: str, params: tuple = ()) -> pd.DataFrame:
         cur.execute(sql, params)
         cols = [c[0] for c in cur.description]
         rows = cur.fetchall()
-    conn.commit()
     return pd.DataFrame(rows, columns=cols)
+
+
+def tables_ready() -> bool:
+    """The consumer creates the tables on first start. Until then, show a
+    waiting state instead of a stack trace."""
+    df = query(
+        """
+        SELECT COUNT(*) AS n
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name IN ('price_ticks', 'price_analytics');
+        """
+    )
+    return int(df.iloc[0]["n"]) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -69,15 +87,25 @@ with st.sidebar:
         language="text",
     )
 
+# Connect + bootstrap check
 try:
-    analytics = query("SELECT * FROM price_analytics ORDER BY coin;")
+    if not tables_ready():
+        st.info("⏳ Waiting for the consumer to initialise the database schema "
+                "and process the first ticks. This usually takes ~30 seconds "
+                "after first boot.")
+        time.sleep(refresh)
+        st.rerun()
 except psycopg2.Error as exc:
-    st.error(f"Could not query analytics table: {exc}")
+    st.error(f"Could not reach Postgres: {exc}")
     st.stop()
 
+analytics = query("SELECT * FROM price_analytics ORDER BY coin;")
+
 if analytics.empty:
-    st.warning("No data yet. Waiting for the consumer to process the first ticks...")
-    st.stop()
+    st.warning("Schema is ready but no ticks have been processed yet. "
+               "Hold on a few seconds...")
+    time.sleep(refresh)
+    st.rerun()
 
 # KPI row
 st.subheader("Latest Snapshot")
@@ -125,6 +153,5 @@ with st.expander("Recent raw ticks (last 50)"):
 st.caption(f"Last refreshed: {datetime.now(timezone.utc).isoformat()}")
 
 # Auto-refresh
-import time
 time.sleep(refresh)
 st.rerun()
