@@ -1,0 +1,8 @@
+# Namespace isolates all our resources from the cluster's other workloads.
+# Useful for RBAC, resource quotas, and clean teardown (`kubectl delete ns crypto-pipeline`).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crypto-pipeline
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline

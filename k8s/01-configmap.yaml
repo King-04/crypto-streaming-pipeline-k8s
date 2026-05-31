@@ -1,0 +1,30 @@
+# ConfigMap holds NON-SECRET configuration shared across pods.
+# Editing this and re-applying does NOT auto-restart pods — you need to
+# `kubectl rollout restart deploy/<name>` to pick up changes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crypto-config
+  namespace: crypto-pipeline
+data:
+  # Kafka
+  KAFKA_BOOTSTRAP: "kafka-0.kafka.crypto-pipeline.svc.cluster.local:9092"
+  KAFKA_TOPIC: "crypto-prices"
+  KAFKA_GROUP: "crypto-consumer"
+
+  # Data source
+  COINGECKO_URL: "https://api.coingecko.com/api/v3/simple/price"
+  COINS: "bitcoin,ethereum,solana,cardano,ripple"
+  VS_CURRENCY: "usd"
+  POLL_INTERVAL_SECONDS: "15"
+
+  # Consumer analytics window
+  WINDOW_SIZE: "20"
+
+  # Postgres (non-sensitive bits; credentials are in the Secret)
+  PG_HOST: "postgres"
+  PG_PORT: "5432"
+  PG_DB: "crypto"
+
+  # Dashboard
+  REFRESH_SECONDS: "10"
