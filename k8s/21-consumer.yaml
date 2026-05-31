@@ -1,0 +1,46 @@
+# Consumer Deployment — 2 replicas to demonstrate Kafka consumer-group
+# partitioning. Both pods join the same group (KAFKA_GROUP), and Kafka
+# auto-distributes the 3 topic partitions across them.
+#
+# Try this live demo:
+#   kubectl scale deploy/consumer -n crypto-pipeline --replicas=3
+#   kubectl logs -n crypto-pipeline -l app=consumer --tail=10 -f
+# Each pod will be assigned a different subset of partitions/coins.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  namespace: crypto-pipeline
+  labels:
+    app: consumer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+        - name: consumer
+          image: crypto-consumer:latest
+          imagePullPolicy: Never
+          envFrom:
+            - configMapRef:
+                name: crypto-config
+          env:
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-user }
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-password }
+          resources:
+            requests: { cpu: "50m",  memory: "128Mi" }
+            limits:   { cpu: "300m", memory: "256Mi" }
+      # Give the consumer a few seconds to flush its current Kafka batch
+      # and commit offsets when K8s tells it to shut down (rolling updates,
+      # scaling down). Our consumer.py traps SIGTERM and exits cleanly.
+      terminationGracePeriodSeconds: 20

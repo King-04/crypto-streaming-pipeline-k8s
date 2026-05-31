@@ -1,0 +1,32 @@
+# Ingress = the front gate for external HTTP traffic.
+# This rule says: "anything arriving at crypto.local should be routed
+# to the 'dashboard' Service on port 80".
+#
+# On Minikube with the Docker driver, run `minikube tunnel` in a separate
+# terminal, then add this line to your hosts file:
+#
+#   Windows:  C:\Windows\System32\drivers\etc\hosts
+#             127.0.0.1   crypto.local
+#
+# Then visit http://crypto.local in your browser.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard
+  namespace: crypto-pipeline
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: crypto.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 80

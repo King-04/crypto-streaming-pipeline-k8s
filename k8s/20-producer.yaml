@@ -1,0 +1,35 @@
+# Producer is stateless — we use a Deployment, not a StatefulSet.
+# If this pod dies, K8s creates a new one with a different name on any node.
+# No persistent identity needed because it only writes to Kafka.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: crypto-pipeline
+  labels:
+    app: producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+        - name: producer
+          image: crypto-producer:latest
+          # We build this image straight into minikube's docker daemon,
+          # so K8s must not try to pull from a remote registry.
+          imagePullPolicy: Never
+          # envFrom pulls EVERY key in the ConfigMap as an env var — much
+          # cleaner than enumerating each one. Producer ignores keys it
+          # doesn't need (e.g. PG_*).
+          envFrom:
+            - configMapRef:
+                name: crypto-config
+          resources:
+            requests: { cpu: "50m",  memory: "64Mi" }
+            limits:   { cpu: "200m", memory: "128Mi" }

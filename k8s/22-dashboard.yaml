@@ -1,0 +1,68 @@
+# Dashboard Service — ClusterIP (not headless) because we don't need a
+# stable per-pod DNS name. The Ingress points to this Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: crypto-pipeline
+  labels:
+    app: dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app: dashboard
+  ports:
+    - name: http
+      port: 80         # Service port (what the Ingress targets)
+      targetPort: 8501 # Container port (what Streamlit listens on)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: crypto-pipeline
+  labels:
+    app: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: crypto-dashboard:latest
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8501
+          envFrom:
+            - configMapRef:
+                name: crypto-config
+          env:
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-user }
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-password }
+          # Streamlit exposes a health endpoint at /_stcore/health
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
