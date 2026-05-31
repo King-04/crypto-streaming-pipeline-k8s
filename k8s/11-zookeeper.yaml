@@ -1,0 +1,69 @@
+# Headless Service for Zookeeper
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: crypto-pipeline
+  labels:
+    app: zookeeper
+spec:
+  clusterIP: None
+  selector:
+    app: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: crypto-pipeline
+spec:
+  serviceName: zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.6.1
+          ports:
+            - name: client
+              containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+            # Whitelist the four-letter-words so 'cub zk-ready' and friends work
+            - name: KAFKA_OPTS
+              value: "-Dzookeeper.4lw.commands.whitelist=*"
+          readinessProbe:
+            exec:
+              command: ["cub", "zk-ready", "localhost:2181", "10"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/zookeeper/data
+            - name: log
+              mountPath: /var/lib/zookeeper/log
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 500Mi } }
+    - metadata: { name: log }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 500Mi } }

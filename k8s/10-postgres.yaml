@@ -1,0 +1,88 @@
+# --- Headless Service ---
+# clusterIP: None means no virtual IP; DNS resolves directly to pod IPs.
+# This is REQUIRED for StatefulSets so each pod gets a stable DNS name
+# like postgres-0.postgres.crypto-pipeline.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: crypto-pipeline
+  labels:
+    app: postgres
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+# --- StatefulSet ---
+# Why StatefulSet not Deployment?
+# - Stable, predictable network identity (postgres-0)
+# - Persistent volume claim auto-created per pod via volumeClaimTemplates
+# - Ordered rollout/teardown (important when you later run replicas)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: crypto-pipeline
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            # Map our generic Secret keys to the names the postgres image expects
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-user }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: crypto-secrets, key: postgres-password }
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef: { name: crypto-config, key: PG_DB }
+            # PGDATA in a subdirectory avoids the lost+found-clash issue with
+            # mounted volumes — a common postgres-in-K8s gotcha.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "crypto", "-d", "crypto"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "crypto", "-d", "crypto"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+  # Each replica automatically gets its own PVC matching this template.
+  # On Minikube, the default storage-provisioner creates a hostPath volume.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
