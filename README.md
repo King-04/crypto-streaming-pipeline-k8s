@@ -4,7 +4,10 @@ An end-to-end streaming data pipeline that ingests live cryptocurrency prices, p
 
 Built as a portfolio project to demonstrate end-to-end data engineering: streaming ingestion, message brokering, stateful processing, persistent storage, and visualisation, deployed on Kubernetes with the production patterns that real platforms use.
 
+PERFORMANCE COMPARISON
 ![Dashboard](docs/screenshots/dashboard.png)
+VOLUME AND VOLATILITY
+![Dashboard2](docs/screenshots/dashboard-deep-dive.png)
 
 ---
 
