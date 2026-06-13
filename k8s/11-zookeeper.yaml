@@ -47,9 +47,10 @@ spec:
               value: "-Dzookeeper.4lw.commands.whitelist=*"
           readinessProbe:
             exec:
-              command: ["cub", "zk-ready", "localhost:2181", "10"]
+              command: ["cub", "zk-ready", "localhost:2181", "5"]
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 10
           volumeMounts:
             - name: data
               mountPath: /var/lib/zookeeper/data

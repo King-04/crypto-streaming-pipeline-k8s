@@ -70,9 +70,10 @@ spec:
               value: "3"
           readinessProbe:
             exec:
-              command: ["cub", "kafka-ready", "-b", "localhost:9092", "1", "30"]
+              command: ["cub", "kafka-ready", "-b", "localhost:9092", "1", "10"]
             initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 15
           volumeMounts:
             - name: data
               mountPath: /var/lib/kafka/data
